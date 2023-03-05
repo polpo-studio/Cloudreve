@@ -29,6 +29,19 @@ func Init(isSlave bool) {
 	}
 }
 
+func InitWithExternal() {
+	if conf.RedisConfig.Server != "" {
+		util.Log().Info("InitWithExternal: Initializing redis cache connection...")
+		Store = NewRedisStore(
+			10,
+			conf.RedisConfig.Network,
+			conf.RedisConfig.Server,
+			conf.RedisConfig.Password,
+			conf.RedisConfig.DB,
+		)
+	}
+}
+
 // Driver 键值缓存存储容器
 type Driver interface {
 	// 设置值，ttl为过期时间，单位为秒

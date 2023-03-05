@@ -10,10 +10,10 @@ import (
 	"github.com/jinzhu/gorm"
 
 	_ "github.com/cloudreve/Cloudreve/v3/models/dialects"
-	_ "github.com/glebarez/go-sqlite"
-	_ "github.com/jinzhu/gorm/dialects/mssql"
+	//_ "github.com/glebarez/go-sqlite"
+	//_ "github.com/jinzhu/gorm/dialects/mssql"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
-	_ "github.com/jinzhu/gorm/dialects/postgres"
+	//_ "github.com/jinzhu/gorm/dialects/postgres"
 )
 
 // DB 数据库链接单例
@@ -95,6 +95,53 @@ func Init() {
 	} else {
 		db.DB().SetMaxOpenConns(100)
 	}
+
+	//超时
+	db.DB().SetConnMaxLifetime(time.Second * 30)
+
+	DB = db
+
+	//执行迁移
+	migration()
+}
+
+func InitWithExternal() {
+	util.Log().Info("InitWithExternal: Initializing database connection...")
+
+	var (
+		db         *gorm.DB
+		err        error
+		confDBType string = conf.DatabaseConfig.Type
+	)
+
+	var host = fmt.Sprintf("(%s:%d)", conf.DatabaseConfig.Host, conf.DatabaseConfig.Port)
+
+	db, err = gorm.Open(confDBType, fmt.Sprintf("%s:%s@%s/%s?charset=%s&parseTime=True&loc=Local",
+		conf.DatabaseConfig.User,
+		conf.DatabaseConfig.Password,
+		host,
+		conf.DatabaseConfig.Name,
+		conf.DatabaseConfig.Charset))
+
+	if err != nil {
+		util.Log().Panic("Failed to connect to database: %s", err)
+	}
+
+	// 处理表前缀
+	gorm.DefaultTableNameHandler = func(db *gorm.DB, defaultTableName string) string {
+		return conf.DatabaseConfig.TablePrefix + defaultTableName
+	}
+
+	// Debug模式下，输出所有 SQL 日志
+	if conf.SystemConfig.Debug {
+		db.LogMode(true)
+	} else {
+		db.LogMode(false)
+	}
+
+	//设置连接池
+	db.DB().SetMaxIdleConns(50)
+	db.DB().SetMaxOpenConns(100)
 
 	//超时
 	db.DB().SetConnMaxLifetime(time.Second * 30)
